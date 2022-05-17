@@ -21,13 +21,67 @@ type DiscordPlaysBot struct {
 func NewDiscordPlaysBot(token string) *DiscordPlaysBot {
 	s := session.New(token)
 	s.AddHandler(func(e *gateway.InteractionCreateEvent) {
-		data := api.InteractionResponse{
-			Type: api.MessageInteractionWithSource,
-			Data: &api.InteractionResponseData{
-				Content: option.NewNullableString("Pong!"),
-			},
+		var resp api.InteractionResponse
+		switch data := e.Data.(type) {
+		case *discord.CommandInteraction:
+			if data.Name != "buttons" {
+				resp = api.InteractionResponse{
+					Type: api.MessageInteractionWithSource,
+					Data: &api.InteractionResponseData{
+						Content: option.NewNullableString("Unknown command: " + data.Name),
+					},
+				}
+				break
+			}
+			// Send a message with a button back on slash commands.
+			resp = api.InteractionResponse{
+				Type: api.MessageInteractionWithSource,
+				Data: &api.InteractionResponseData{
+					Content: option.NewNullableString("This is a message with a button!"),
+					Components: discord.ComponentsPtr(
+						&discord.ActionRowComponent{
+							&discord.ButtonComponent{
+								Label:    "Hello World!",
+								CustomID: "first_button",
+								Emoji:    &discord.ComponentEmoji{Name: "👋"},
+								Style:    discord.PrimaryButtonStyle(),
+							},
+							&discord.ButtonComponent{
+								Label:    "Secondary",
+								CustomID: "second_button",
+								Style:    discord.SecondaryButtonStyle(),
+							},
+							&discord.ButtonComponent{
+								Label:    "Success",
+								CustomID: "success_button",
+								Style:    discord.SuccessButtonStyle(),
+							},
+							&discord.ButtonComponent{
+								Label:    "Danger",
+								CustomID: "danger_button",
+								Style:    discord.DangerButtonStyle(),
+							},
+						},
+						// This is automatically put into its own row.
+						&discord.ButtonComponent{
+							Label: "Link",
+							Style: discord.LinkButtonStyle("https://google.com"),
+						},
+					),
+				},
+			}
+		case discord.ComponentInteraction:
+			resp = api.InteractionResponse{
+				Type: api.UpdateMessage,
+				Data: &api.InteractionResponseData{
+					Content: option.NewNullableString("Custom ID: " + string(data.ID())),
+				},
+			}
+		default:
+			log.Printf("unknown interaction type %T", e.Data)
+			return
 		}
-		if err := s.RespondInteraction(e.ID, e.Token, data); err != nil {
+		if err := s.RespondInteraction(e.ID, e.Token, resp); err != nil {
 			log.Println("failed to send interaction callback:", err)
 		}
 	})
@@ -67,17 +121,4 @@ func (bot *DiscordPlaysBot) connect() {
 
 	// Block forever.
 	<-bot.quit
-}
-
-func (bot *DiscordPlaysBot) UpdateCommands() {
-	newCommands := []api.CreateCommandData{
-		{
-			Name:        "ping",
-			Description: "Basic ping command.",
-		},
-	}
-
-	if _, err := bot.Session.BulkOverwriteGuildCommands(bot.Session.ID, guildID, newCommands); err != nil {
-		log.Fatalln("failed to create guild command:", err)
-	}
 }
