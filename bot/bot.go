@@ -11,20 +11,24 @@ import (
 	"github.com/discord-plays/base/iface"
 	"github.com/discord-plays/base/utils"
 	"log"
+	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
 )
 
 type DiscordPlaysBot struct {
+	iface.Module
 	session     *session.Session
 	application *discord.Application
 	commands    map[string]iface.Command
 	components  map[discord.ComponentID]iface.Component
+	playUrl     *url.URL
+	logoUrl     *url.URL
 	quit        chan struct{}
 }
 
-func NewDiscordPlaysBot(token string) *DiscordPlaysBot {
+func NewDiscordPlaysBot(token string, playUrl *url.URL, logoUrl *url.URL) *DiscordPlaysBot {
 	s := session.New("Bot " + token)
 	app, err := s.CurrentApplication()
 	if err != nil {
@@ -35,6 +39,8 @@ func NewDiscordPlaysBot(token string) *DiscordPlaysBot {
 		application: app,
 		commands:    make(map[string]iface.Command),
 		components:  make(map[discord.ComponentID]iface.Component),
+		playUrl:     playUrl,
+		logoUrl:     logoUrl,
 		quit:        make(chan struct{}),
 	}
 	return bot.init()
@@ -50,6 +56,14 @@ func (bot *DiscordPlaysBot) Application() *discord.Application {
 
 func (bot *DiscordPlaysBot) Commands() map[string]iface.Command {
 	return bot.commands
+}
+
+func (bot *DiscordPlaysBot) PlayUrl() discord.URL {
+	return bot.playUrl.String()
+}
+
+func (bot *DiscordPlaysBot) LogoUrl() discord.URL {
+	return bot.logoUrl.String()
 }
 
 func (bot *DiscordPlaysBot) Run() {

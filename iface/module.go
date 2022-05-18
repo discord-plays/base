@@ -11,4 +11,6 @@ type Module interface {
 	Commands() map[string]Command
 	AddCommandCallback(command Command)
 	UpdateGuildCommands(guildId discord.GuildID) error
+	PlayUrl() discord.URL
+	LogoUrl() discord.URL
 }
