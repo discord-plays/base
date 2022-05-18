@@ -8,10 +8,10 @@ import (
 	"github.com/diamondburned/arikawa/v3/gateway"
 	"github.com/diamondburned/arikawa/v3/session"
 	"github.com/discord-plays/base/commands"
+	"github.com/discord-plays/base/config"
 	"github.com/discord-plays/base/iface"
 	"github.com/discord-plays/base/utils"
 	"log"
-	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
@@ -19,29 +19,27 @@ import (
 
 type DiscordPlaysBot struct {
 	iface.Module
-	session     *session.Session
-	application *discord.Application
-	commands    map[string]iface.Command
-	components  map[discord.ComponentID]iface.Component
-	playUrl     *url.URL
-	logoUrl     *url.URL
-	quit        chan struct{}
+	session       *session.Session
+	application   *discord.Application
+	commands      map[string]iface.Command
+	components    map[discord.ComponentID]iface.Component
+	dataStructure *config.DataStructure
+	quit          chan struct{}
 }
 
-func NewDiscordPlaysBot(token string, playUrl *url.URL, logoUrl *url.URL) *DiscordPlaysBot {
+func NewDiscordPlaysBot(token string, dataStructure *config.DataStructure) *DiscordPlaysBot {
 	s := session.New("Bot " + token)
 	app, err := s.CurrentApplication()
 	if err != nil {
 		log.Fatalln("Failed to get application ID:", err)
 	}
 	bot := DiscordPlaysBot{
-		session:     s,
-		application: app,
-		commands:    make(map[string]iface.Command),
-		components:  make(map[discord.ComponentID]iface.Component),
-		playUrl:     playUrl,
-		logoUrl:     logoUrl,
-		quit:        make(chan struct{}),
+		session:       s,
+		application:   app,
+		commands:      make(map[string]iface.Command),
+		components:    make(map[discord.ComponentID]iface.Component),
+		dataStructure: dataStructure,
+		quit:          make(chan struct{}),
 	}
 	return bot.init()
 }
@@ -58,12 +56,16 @@ func (bot *DiscordPlaysBot) Commands() map[string]iface.Command {
 	return bot.commands
 }
 
-func (bot *DiscordPlaysBot) PlayUrl() discord.URL {
-	return bot.playUrl.String()
+func (bot *DiscordPlaysBot) CreditsConfig() *config.CreditsJson {
+	return bot.dataStructure.Credits
 }
 
-func (bot *DiscordPlaysBot) LogoUrl() discord.URL {
-	return bot.logoUrl.String()
+func (bot *DiscordPlaysBot) GameConfig() *config.GameJson {
+	return bot.dataStructure.Game
+}
+
+func (bot *DiscordPlaysBot) StatusConfig() *config.StatusJson {
+	return bot.dataStructure.Status
 }
 
 func (bot *DiscordPlaysBot) Run() {
@@ -111,7 +113,8 @@ func (bot *DiscordPlaysBot) connect() {
 }
 
 func (bot *DiscordPlaysBot) init() *DiscordPlaysBot {
-	bot.AddCommandCallback(&commands.UpdateGuildCommands{})
+	bot.AddCommandCallback(&commands.UpdateGuildCommandsCmd{})
+	bot.AddCommandCallback(&commands.CreditsCmd{})
 
 	bot.session.AddIntents(gateway.IntentGuilds)
 	bot.session.AddIntents(gateway.IntentGuildMessages)

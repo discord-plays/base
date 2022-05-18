@@ -9,26 +9,26 @@ import (
 	"log"
 )
 
-type UpdateGuildCommands struct {
+type UpdateGuildCommandsCmd struct {
 }
 
-func (u *UpdateGuildCommands) Name() string {
+func (u *UpdateGuildCommandsCmd) Name() string {
 	return "update-guild-commands"
 }
 
-func (u *UpdateGuildCommands) Description() string {
+func (u *UpdateGuildCommandsCmd) Description() string {
 	return "Update guild commands for this bot"
 }
 
-func (u *UpdateGuildCommands) Options() discord.CommandOptions {
+func (u *UpdateGuildCommandsCmd) Options() discord.CommandOptions {
 	return discord.CommandOptions{}
 }
 
-func (u *UpdateGuildCommands) CommandType() discord.CommandType {
+func (u *UpdateGuildCommandsCmd) CommandType() discord.CommandType {
 	return discord.ChatInputCommand
 }
 
-func (u *UpdateGuildCommands) Execute(bot iface.Module, e *gateway.InteractionCreateEvent, _ *discord.CommandInteraction) api.InteractionResponse {
+func (u *UpdateGuildCommandsCmd) Execute(bot iface.Module, e *gateway.InteractionCreateEvent, _ *discord.CommandInteraction) api.InteractionResponse {
 	perms, err := utils.InteractionUserPermissions(bot.Session(), e)
 	if err != nil {
 		return utils.EphemeralErrorResponse(err.Error())
