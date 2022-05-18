@@ -9,6 +9,6 @@ type Module interface {
 	Session() *session.Session
 	Application() *discord.Application
 	Commands() map[string]Command
-	AddCommand(command Command)
+	AddCommandCallback(command Command)
 	UpdateGuildCommands(guildId discord.GuildID) error
 }

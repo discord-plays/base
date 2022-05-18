@@ -7,9 +7,9 @@ import (
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/gateway"
 	"github.com/diamondburned/arikawa/v3/session"
-	"github.com/diamondburned/arikawa/v3/utils/json/option"
 	"github.com/discord-plays/base/commands"
 	"github.com/discord-plays/base/iface"
+	"github.com/discord-plays/base/utils"
 	"log"
 	"os"
 	"os/signal"
@@ -20,19 +20,8 @@ type DiscordPlaysBot struct {
 	session     *session.Session
 	application *discord.Application
 	commands    map[string]iface.Command
+	components  map[discord.ComponentID]iface.Component
 	quit        chan struct{}
-}
-
-func (bot *DiscordPlaysBot) Session() *session.Session {
-	return bot.session
-}
-
-func (bot *DiscordPlaysBot) Application() *discord.Application {
-	return bot.application
-}
-
-func (bot *DiscordPlaysBot) Commands() map[string]iface.Command {
-	return bot.commands
 }
 
 func NewDiscordPlaysBot(token string) *DiscordPlaysBot {
@@ -45,9 +34,22 @@ func NewDiscordPlaysBot(token string) *DiscordPlaysBot {
 		session:     s,
 		application: app,
 		commands:    make(map[string]iface.Command),
+		components:  make(map[discord.ComponentID]iface.Component),
 		quit:        make(chan struct{}),
 	}
 	return bot.init()
+}
+
+func (bot *DiscordPlaysBot) Session() *session.Session {
+	return bot.session
+}
+
+func (bot *DiscordPlaysBot) Application() *discord.Application {
+	return bot.application
+}
+
+func (bot *DiscordPlaysBot) Commands() map[string]iface.Command {
+	return bot.commands
 }
 
 func (bot *DiscordPlaysBot) Run() {
@@ -67,8 +69,12 @@ func (bot *DiscordPlaysBot) Hang() {
 	log.Println("Quitting Discord Plays bot...")
 }
 
-func (bot *DiscordPlaysBot) AddCommand(c iface.Command) {
+func (bot *DiscordPlaysBot) AddCommandCallback(c iface.Command) {
 	bot.commands[c.Name()] = c
+}
+
+func (bot *DiscordPlaysBot) AddComponentCallback(c iface.Component) {
+	bot.components[c.Id()] = c
 }
 
 func (bot *DiscordPlaysBot) connect() {
@@ -91,7 +97,7 @@ func (bot *DiscordPlaysBot) connect() {
 }
 
 func (bot *DiscordPlaysBot) init() *DiscordPlaysBot {
-	bot.AddCommand(&commands.UpdateCommands{})
+	bot.AddCommandCallback(&commands.UpdateGuildCommands{})
 
 	bot.session.AddIntents(gateway.IntentGuilds)
 	bot.session.AddIntents(gateway.IntentGuildMessages)
@@ -112,20 +118,13 @@ func (bot *DiscordPlaysBot) init() *DiscordPlaysBot {
 			if commandName, ok := bot.commands[data.Name]; ok {
 				resp = commandName.Execute(bot, e, data)
 			} else {
-				resp = api.InteractionResponse{
-					Type: api.MessageInteractionWithSource,
-					Data: &api.InteractionResponseData{
-						Flags:   api.EphemeralResponse,
-						Content: option.NewNullableString("Unknown command: " + data.Name),
-					},
-				}
+				resp = utils.EphemeralErrorResponse("Unknown command: " + data.Name)
 			}
 		case discord.ComponentInteraction:
-			resp = api.InteractionResponse{
-				Type: api.UpdateMessage,
-				Data: &api.InteractionResponseData{
-					Content: option.NewNullableString("Custom ID: " + string(data.ID())),
-				},
+			if componentName, ok := bot.components[data.ID()]; ok {
+				resp = componentName.Execute(bot, e, data)
+			} else {
+				resp = utils.EphemeralErrorResponse("Unknown component: " + string(data.ID()))
 			}
 		default:
 			log.Printf("unknown interaction type %T", e.Data)
